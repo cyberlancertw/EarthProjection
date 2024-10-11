@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+    <div id="divContainer">
+        <svg id="svgEarth">
+            <g id="gSea"></g>
+            <g id="gLand"></g>
+        </svg>
+        <div id="divButton">
+            <button id="btnZoomIn">+</button>
+            <button id="btnZoomOut">-</button>
+        </div>
+        <svg id="svgMap">
+            <g id="gBorder"></g>
+            <g id="gView"></g>
+            <g id="gAim">
+                <line id="lineHor" x1="0" y1="0" x2="0" y2="0" stroke="#000000"></line>
+                <line id="lineVer" x1="0" y1="0" x2="0" y2="0" stroke="#000000"></line>
+            </g>
+        </svg>
+    </div>
+    <script src="./geo.js"></script>
+    <script src="./function.js"></script>
+</body>
+</html>
