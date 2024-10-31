@@ -11,17 +11,22 @@
         <svg id="svgEarth">
             <g id="gSea"></g>
             <g id="gLand"></g>
+            <g id="gMainLatitude"></g>
         </svg>
         <div id="divButton">
             <button id="btnZoomIn">+</button>
             <button id="btnZoomOut">-</button>
+            <button id="btnBorder">O</button>
+            <button id="btnLatitude">=</button>
+            <button id="btnBoundary">B</button>
         </div>
         <svg id="svgMap">
-            <g id="gBorder"></g>
             <g id="gView"></g>
+            <g id="gMapLatitude"></g>
+            <g id="gBoundary"></g>
             <g id="gAim">
-                <line id="lineHor" x1="0" y1="0" x2="0" y2="0" stroke="#000000"></line>
-                <line id="lineVer" x1="0" y1="0" x2="0" y2="0" stroke="#000000"></line>
+                <line id="lineHor" x1="0" y1="0" x2="0" y2="0" stroke="#000000" stroke-width="0.8"></line>
+                <line id="lineVer" x1="0" y1="0" x2="0" y2="0" stroke="#000000" stroke-width="0.8"></line>
             </g>
         </svg>
     </div>
