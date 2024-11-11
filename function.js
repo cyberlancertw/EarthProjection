@@ -14,6 +14,11 @@ const lineHor = document.getElementById('lineHor');
 const lineVer = document.getElementById('lineVer');
 
 const setting = {
+    device: {
+        isPortrait: false,
+        isClickable: false,
+        isTouchable: false
+    },
     lock: false,
     draw: {
         border: true,
@@ -56,16 +61,18 @@ const setting = {
     },
     distance: {
         value: 5,
+        x: 0,
         offset: 0.2,
-        min: 1,
-        max: 9,
+        min: 1.3,
+        max: 6.6,
         dragRatio: 0.8,
         dragRadius: 0,
         borderDistance: 0
     },
     sea: {
         //color: '#81c7d4',
-        color: '#a1e7f4',
+        //color: '#a1e7f4',
+        color: '#7db9de',
         borderColor: '#808080',
         divide: 144,
         z: 0,
@@ -81,36 +88,128 @@ const setting = {
         }
     },
     boundary: {
-        color: '#81c7d4',
-        opacity: 0.3,
-        stroke: 'none'
+        //color: '#81c7d4',
+        color: '#000000',
+        opacity: 0.05,
+        stroke: '#000000'
     }
 };
 
+BodyInit();
 
-InitSetting();
-RefreshSetting();
-InitGeoToCoor();
+/**
+ * 
+ * @param {WheelEvent} event 
+ */
+function MouseWheelEarth(event){
+    // 節流閥沒用？
+    if (setting.lock){
+        return;
+    }
+    setting.lock = true;
+    if (event.wheelDelta > 0){
+        Zoom(true);
+    }
+    else{
+        Zoom(false);
+    }
+    window.setTimeout(function(){
+        setting.lock = false;
+    }, 500);
+}
+function BodyInit(){
+    setting.device.isClickable = 'onmousedown' in window;
+    setting.device.isTouchable = 'ontouchstart' in window;
 
-svgEarth.addEventListener('mousedown', ClickEarth);
-svgEarth.addEventListener("mousemove", DrawEarth);
-svgMap.addEventListener('click', ClickMap);
-svgMap.addEventListener('mousemove', HoverMap);
-document.getElementById('btnZoomIn').addEventListener('click', function(){ Zoom(true);});
-document.getElementById('btnZoomOut').addEventListener('click', function(){ Zoom(false);});
-document.getElementById('btnBoundary').addEventListener('click', ToggleDrawBoundary);
-document.getElementById('btnBorder').addEventListener('click', ToggleDrawBorder);
-document.getElementById('btnLatitude').addEventListener('click', ToggleDrawLatitude);
-DrawSea();
-DrawEarth();
-DrawMap();
+    if (setting.device.isClickable){
+        svgEarth.addEventListener('mousedown', ClickEarth);
+        svgEarth.addEventListener("mousemove", MouseMoveEarth);
+        svgEarth.addEventListener('mousewheel', MouseWheelEarth);
+        svgMap.addEventListener('click', ClickMap);
+        svgMap.addEventListener('mousemove', HoverMap);
+        setting.mouse.dragSpeed = 4;
+        setting.mouse.spinSpeed = 18;
+    }
+
+    if (setting.device.isTouchable){
+        svgMap.addEventListener('pointerdown', ClickMap);
+        svgMap.addEventListener('pointermove', HoverMap);
+        //svgEarth.addEventListener('pointerdown', ClickEarth);
+        svgEarth.addEventListener('touchstart', TouchEarth);
+        //svgEarth.addEventListener('pointermove', DrawEarth);
+        svgEarth.addEventListener('touchmove', TouchMoveEarth);
+        setting.mouse.dragSpeed = 2;
+        setting.mouse.spinSpeed = 8;
+    }
+    document.getElementById('btnZoomIn').addEventListener('click', function(){ Zoom(true);});
+    document.getElementById('btnZoomOut').addEventListener('click', function(){ Zoom(false);});
+    document.getElementById('btnBoundary').addEventListener('click', ToggleDrawBoundary);
+    document.getElementById('btnBorder').addEventListener('click', ToggleDrawBorder);
+    document.getElementById('btnLatitude').addEventListener('click', ToggleDrawLatitude);
+    if (screen.orientation){
+        setting.device.isPortrait = screen.orientation.type === 'portrait-primary' || screen.orientation.type === 'portrait-secondary';
+        screen.orientation.addEventListener('change', ScreenOrientationChange);
+    }
+    else if (window.orientation){
+        setting.device.isPortrait = window.matchMedia('(orientation: portrait)').matches;
+        window.addEventListener('orientationchange', WindowOrientationChange);
+    }
+    else{
+        setting.device.isPortrait = window.matchMedia('(orientation: portrait)').matches;
+        window.addEventListener('resize', WindowResize);
+    }
+    InitSetting();
+    RefreshSetting();
+    InitGeoToCoor();
+    DrawSea();
+    DrawEarth();
+    DrawMap();
+}
+
+function ScreenOrientationChange(){
+    // 是否為直立移動裝置
+    setting.device.isPortrait = screen.orientation.type === 'portrait-primary' || screen.orientation.type === 'portrait-secondary';
+    RefreshSetting();
+    DrawSea();
+    DrawEarth();
+    DrawMap();
+}
+
+function WindowOrientationChange(){
+    // 是否為直立移動裝置
+    setting.device.isPortrait = window.matchMedia('(orientation: portrait)').matches;
+    RefreshSetting();
+    DrawSea();
+    DrawEarth();
+    DrawMap();
+}
+
+function WindowResize(){
+    // 取目前的旋轉狀態
+    const isPortraitNow = window.matchMedia('(orientation: portrait)').matches;
+    // 有旋轉才往下做
+    if (setting.device.isPortrait === isPortraitNow){
+        return;
+    }
+    RefreshSetting();
+    DrawSea();
+    DrawEarth();
+    DrawMap();
+}
 
 function ClickEarth(event){
     setting.last.x = event.offsetX;
     setting.last.y = event.offsetY;
 }
 
-function DrawEarth(event) {
+function TouchEarth(event){
+    const changedTouches = event.changedTouches[0];
+    const rect = svgEarth.getBoundingClientRect();
+    setting.last.x = changedTouches.pageX - rect.left;
+    setting.last.y = changedTouches.pageY - rect.top;
+}
+
+function MouseMoveEarth(event){
     // 有點滑鼠時只有按著左鍵時才會重畫，若滑鼠是懸停的就離開
     if (event && event.buttons !== 1){
         return;
@@ -119,11 +218,22 @@ function DrawEarth(event) {
         return;
     }
     setting.lock = true;
+    CalculateAngle(event.offsetX, event.offsetY);
+    DrawEarth();
+}
 
+function TouchMoveEarth(event){
+    if (setting.lock){
+        return;
+    }
+    setting.lock = true;
+    const changedTouches = event.changedTouches[0];
+    const rect = svgEarth.getBoundingClientRect();
+    CalculateAngle(changedTouches.pageX - rect.left, changedTouches.pageY - rect.top);
+    DrawEarth();
+}
 
-    CalculateAngle(event);
-    
-
+function DrawEarth() {
     const drawData = [];
     for (const data of coorData){
         const parsedData = {};
@@ -174,85 +284,23 @@ function DrawEarth(event) {
     setting.lock = false;
 }
 
-function CalculateAngle(event){
-/*
-    if (event){
-        setting.mouse.x = setting.mouse.x + event.offsetX - setting.last.x;
-        setting.mouse.y = setting.mouse.y + event.offsetY - setting.last.y;
-    
-        setting.last.x = event.offsetX;
-        setting.last.y = event.offsetY;
-    }
-    setting.angle.roll = (setting.mouse.y / setting.svg.height) * Math.PI;
-    setting.angle.pitch = (setting.mouse.x / setting.svg.width) * Math.PI;
-    return;
-*/
-
-/*
-    if (event){
-        setting.mouse.x = (event.offsetX - setting.last.x) % setting.svg.halfWidth;
-        setting.mouse.y = (event.offsetY - setting.last.y) % setting.svg.halfHeight;
-    
-        setting.last.x = event.offsetX;
-        setting.last.y = event.offsetY;
-    }
-    const toRotated = {
-        x: - setting.mouse.x / setting.svg.width,
-        y: - setting.mouse.y / setting.svg.height,
-        z: -1
-    }
-    Normalize(toRotated);
-    const from = Rotate2Back(toRotated, setting.angle.roll, setting.angle.pitch, setting.angle.yaw);
-    const to = { x: 0, y: 0, z: -1 };
-    const axis = GetCrossProduct(from, to);
-    let cosineRotationAngle = GetDotProduct(from, to);
-    if (cosineRotationAngle < -1){
-        cosineRotationAngle = -1;
-    }
-    else if (cosineRotationAngle > 1){
-        cosineRotationAngle = 1;
-    }
-    const angle = Math.acos(cosineRotationAngle);
-    Normalize(axis);
-    setting.angle.yaw = - Math.atan2(axis.y, axis.x);
-    setting.angle.pitch = Math.asin(axis.z);
-    setting.angle.roll = angle;
-*/
-    /*
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const dz = to.z - from.z;
-    setting.angle.yaw = Math.atan2(dx, dz);
-    setting.angle.pitch = Math.atan2(Math.sqrt(dx * dx + dy * dy), dz);
-    setting.angle.roll = angle;
-    */
-    /*
-    setting.angle.yaw = setting.angle.yaw % (Math.PI * 2);
-    setting.angle.pitch = setting.angle.pitch % (Math.PI * 2);
-    setting.angle.roll = setting.angle.roll % (Math.PI * 2);
-    */
-
-    if (event){
-        const dx = event.offsetX - setting.svg.halfWidth, dy = event.offsetY - setting.svg.halfHeight;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        setting.mouse.x = ((event.offsetX - setting.last.x) * setting.mouse.dragSpeed);
-        setting.mouse.y = ((event.offsetY - setting.last.y) * setting.mouse.dragSpeed);
-        setting.last.x = event.offsetX;
-        setting.last.y = event.offsetY;
-        if (d < setting.distance.dragRadius){
-            CalculateDrag();
-            setting.aim.coor3D = GetRotateSource();
-        }
-        else{
-            const isClockwise = IsClockwise(dx > 0, dy > 0, setting.mouse.x, setting.mouse.y);
-            if (isClockwise === undefined){
-                return;
-            }
-            CalculateSpin(isClockwise);
-        }
+function CalculateAngle(offsetX, offsetY){
+    const dx = offsetX - setting.svg.halfWidth, dy = offsetY - setting.svg.halfHeight;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    setting.mouse.x = (offsetX - setting.last.x) * setting.mouse.dragSpeed;
+    setting.mouse.y = (offsetY - setting.last.y) * setting.mouse.dragSpeed;
+    setting.last.x = offsetX;
+    setting.last.y = offsetY;
+    if (d < setting.distance.dragRadius){
+        CalculateDrag();
+        setting.aim.coor3D = GetRotateSource();
     }
     else{
-        CalculateDrag();
+        const isClockwise = IsClockwise(dx > 0, dy > 0, setting.mouse.x, setting.mouse.y);
+        if (isClockwise === undefined){
+            return;
+        }
+        CalculateSpin(isClockwise);
     }
 }
 
@@ -633,6 +681,7 @@ function DrawEarthPolygon(coorData) {
             }
             if (region.length > 0){
                 polygon.setAttribute('points', region.join(' '));
+                polygon.addEventListener('touchmove', TouchMoveEarth);
                 gLand.appendChild(polygon);
             }
         }
@@ -772,8 +821,11 @@ function InitSetting(){
  * 更新設定
  */
 function RefreshSetting(){
-    const w = window.innerWidth * 0.45;
-    const h = window.innerHeight;
+    //const w = window.innerWidth * 0.45;
+    //const h = window.innerHeight;
+    //const l = (w > h) ? h : w;
+    const w = Math.max(window.innerWidth, window.innerHeight) * 0.45;
+    const h = Math.min(window.innerWidth, window.innerHeight);
     const l = (w > h) ? h : w;
     setting.svg.width = l;
     setting.svg.halfWidth = l / 2;
@@ -823,26 +875,71 @@ function ConvertCoorToGeo(coor3D){
     const r = Math.cos(phi);
     const latitude = phi * 180 / Math.PI;
     // acos: [-1, 1] => [0, PI]
-    const lambda = Math.acos(coor3D.x / r);
+    //const lambda = Math.acos(coor3D.x / r);
     // asin: [-1, 1] => [-PI/2, PI/2]
     //const lambdaY = Math.asin(y / r);
+    let cosLambda;
+    if (coor3D.x > r){
+        cosLambda = 1;
+    }
+    else if (coor3D.x < -r){
+        cosLambda = -1;
+    }
+    else{
+        cosLambda = coor3D.x / r;
+    }
 
+    if (coor3D.y >= 0){
+        return [latitude, Math.acos(cosLambda) * 180 / Math.PI];
+    }
+    else{
+        return [latitude, - Math.acos(cosLambda) * 180 / Math.PI];
+    }
+    //const cosLambda = (coor3D.x > r || coor3D < -r) ? 1 : (coor3D.x / r);
+    //return [latitude, ((coor3D.y >= 0) ? Math.acos(cosLambda) : - Math.acos(cosLambda)) * 180 / Math.PI];
+/*
     if (coor3D.x >= 0){
+        //TODO: 以下應該可簡化
         if (coor3D.y >= 0){
-            return [latitude, Math.acos(coor3D.x / r) * 180 / Math.PI];
+            const lambda = coor3D.x / r;
+            if (lambda > 1){
+                return [latitude, Math.acos(1) * 180 / Math.PI];
+            }
+            else{
+                return [latitude, Math.acos(lambda) * 180 / Math.PI];
+            }
         }
         else{
-            return [latitude, Math.asin(coor3D.y / r) * 180 / Math.PI];
+            const lambda = coor3D.x / r;
+            if (lambda > 1){
+                return [latitude, - Math.acos(1) * 180 / Math.PI];
+            }
+            else{
+                return [latitude, - Math.acos(lambda) * 180 / Math.PI];
+            }
         }
     }
     else{
         if (coor3D.y >= 0){
-            return [latitude, Math.acos(coor3D.x / r) * 180 / Math.PI];
+            const lambda = coor3D.x / r;
+            if (lambda < -1){
+                return [latitude, Math.acos(-1) * 180 / Math.PI];
+            }
+            else{
+                return [latitude, Math.acos(lambda) * 180 / Math.PI];
+            }
         }
         else{
-            return [latitude, - Math.acos(coor3D.x / r) * 180 / Math.PI];
+            const lambda = coor3D.x / r;
+            if (lambda < -1){
+                return [latitude, - Math.acos(-1) * 180 / Math.PI];
+            }
+            else{
+                return [latitude, - Math.acos(lambda) * 180 / Math.PI];
+            }
         }
     }
+        */
 }
 
 function ConvertGeoToMercator(latitude, longitude){
@@ -1046,17 +1143,12 @@ function MoveToBorder(coor3D){
  * @param {boolean} isZoomIn true 為拉近靠近，false 為拉遠退後
  */
 function Zoom(isZoomIn){
-    if (isZoomIn){
-        // 檢查會不會低於最小值
-        if (setting.distance.min < setting.distance.value - setting.distance.offset){
-            setting.distance.value -= setting.distance.offset;
-        }
-    }
-    else{
-        // 檢查會不會高於最大值
-        if (setting.distance.value + setting.distance.offset < setting.distance.max)
-        setting.distance.value += setting.distance.offset;
-    }
+    const m = setting.distance.min, M = setting.distance.max;
+    // 靠近則距離變小，拉遠則變大
+    setting.distance.x += isZoomIn ? - setting.distance.offset : setting.distance.offset;
+    // y = arctan(x) 圖形的伸縮，像這樣 ＿／￣ 限制在 m 和 M 之間
+    setting.distance.value = Math.atan(setting.distance.x) * (M - m) / Math.PI + (M + m)/ 2;
+
     RefreshSetting();
     DrawSea();
     DrawEarth();

@@ -3,24 +3,47 @@
     padding: 0;
     box-sizing: border-box;
 }
-#divContainer{
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    width: 100%;
-    height: 100vh;
+
+@media screen and (orientation: landscape) {
+    #divContainer{
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        width: 100%;
+        height: 100vh;
+    }
+    
+    /*
+    #svgEarth{
+        background-color: #ffffff;
+    }
+    */
+
+    /*
+    #svgMap{
+        background-color:#ffffff;
+    }
+    */
+
+    button{
+        display: block;
+        width: 1rem;
+        height: 1rem;
+    }
+
 }
 
-#svgEarth{
-    background-color: #ffffff;
-}
+@media screen and (orientation: portrait) {
+    #divContainer{
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        width: 100%;
+        height: 100vh;
+        flex-wrap:wrap;
+    }
 
-#svgMap{
-    background-color:#ffffff;
-}
-
-button{
-    display: block;
-    width: 1rem;
-    height: 1rem;
+    #divButton{
+        width: 100%;
+    }
 }
